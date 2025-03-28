@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import logging
 import logging.handlers
@@ -19,7 +19,7 @@ logger = None
 
 
 def key_by_value(my_dict, value):
-    for k, v in my_dict.iteritems():
+    for k, v in my_dict.items():
         if v == value:
             return k
     return None
@@ -42,9 +42,7 @@ class SocksRelay:
 
         logger.debug('Starting ping thread')
 
-
         self.ping_thread = threading.Thread(target=self.ping_worker)
-
         self.ping_thread.start()
         self.remote_side_down = False
 
@@ -71,19 +69,20 @@ class SocksRelay:
         outputready = None
         exceptready = None
         while True:
-
             try:
                 time.sleep(relay.delay)
-                logger.debug("Active channels: {0}. Pending Channels {1}".format(self.channel.keys(), self.establishing_dict.values()))
-                inputready, outputready, exceptready = select.select(self.input_list, self.establishing_dict.keys(), [], 15)
+                logger.debug("Active channels: {0}. Pending Channels {1}".format(list(self.channel.keys()), list(self.establishing_dict.values())))
+                inputready, outputready, exceptready = select.select(self.input_list, list(self.establishing_dict.keys()), [], 15)
             except KeyboardInterrupt:
                 logger.info('SIGINT received. Closing relay and exiting')
                 self.send_remote_cmd(self.bc_sock, relay.CLOSE_RELAY)
                 self.shutdown()
-            except select.error as (code, msg):
+            except select.error as e:
+                code, msg = e.args
                 logger.debug('Select error on select. Errno: {0} Msg: {1}'.format(errno.errorcode[code], msg))
                 self.shutdown()
-            except socket.error as (code, msg):
+            except socket.error as e:
+                code, msg = e.args
                 logger.debug('Socket error on select. Errno: {0} Msg: {1}'.format(errno.errorcode[code], msg))
                 self.shutdown()
 
@@ -92,7 +91,8 @@ class SocksRelay:
                 logger.debug('Establishing connection with channel id {0}'.format(channel_id))
                 try:
                     sock.recv(0)
-                except socket.error as (code, err_msg):
+                except socket.error as e:
+                    code, err_msg = e.args
                     if code == errno.ECONNREFUSED or code == errno.ETIMEDOUT:
                         logger.debug('Connection {0}'.format(errno.errorcode[code]))
 
@@ -168,7 +168,8 @@ class SocksRelay:
             tlv_header = relay.recvall(sock, 4)
             channel_id, tlv_data_len = unpack('<HH', tlv_header)
             data = relay.recvall(sock, tlv_data_len)
-        except socket.error as (code, msg):
+        except socket.error as e:
+            code, msg = e.args
             logger.debug('Exception on receiving tlv message from remote side. Exiting')
             logger.debug('Errno: {0} Msg: {1}'.format(errno.errorcode[code], msg))
             raise relay.RelayError
@@ -188,7 +189,7 @@ class SocksRelay:
         elif channel_id in self.channel:
             relay_to_sock = self.channel[channel_id]
             logger.debug('Got data to relay from remote side. Channel id {0}. Data length: {1}'.format(channel_id, len(data)))
-            logger.debug('Data contents: {0}'.format(data.encode('hex')))
+            logger.debug('Data contents: {0}'.format(data.hex()))
             self.relay(data, relay_to_sock)
         else:
                 logger.debug('Relay from socket {0} with channel {1} not possible. Channel does not exist'.format(sock, channel_id))
@@ -203,10 +204,10 @@ class SocksRelay:
             logger.debug('Channel corresponding to remote socket {0} already closed. Closing forward socket'.format(sock))
             return
         channel_id = self.id_by_socket[sock]
-        #logger.debug('Readable socket {0} with channel id {1}'.format(sock, channel_id))
         try:
             data = sock.recv(relay.buffer_size)
-        except socket.error as (code, msg):
+        except socket.error as e:
+            code, msg = e.args
             logger.debug('Exception on receiving data from socket {0} with channel id {1}'.format(sock, channel_id))
             logger.debug('Errno: {0} Msg: {1}'.format(errno.errorcode[code], msg))
             logger.debug('Closing socket {0} with channel id {1}'.format(sock, channel_id))
@@ -220,8 +221,8 @@ class SocksRelay:
             channel_id = self.id_by_socket[sock]
             tlv_header = pack('<HH', channel_id, len(data))
             logger.debug('Got data to relay from app side. Channel id {0}. Data length: {1}'.format(channel_id, len(data)))
-            logger.debug('Preparing tlv header: {0}'.format(tlv_header.encode('hex')))
-            logger.debug('Data contents: {0}'.format(data.encode('hex')))
+            logger.debug('Preparing tlv header: {0}'.format(tlv_header.hex()))
+            logger.debug('Data contents: {0}'.format(data.hex()))
             self.relay(tlv_header + data, self.bc_sock)
 
     def close_forward_connection(self, sock):
@@ -237,21 +238,22 @@ class SocksRelay:
     def send_remote_cmd(self, sock, cmd, *args):
         logger.debug('Sending cmd to remote side. Cmd: {0}'.format(relay.cmd_names[cmd]))
         if cmd == relay.CHANNEL_CLOSE_CMD:
-            cmd_buffer = cmd + pack('<H', args[0])
+            cmd_buffer = bytes([cmd]) + pack('<H', args[0])
             tlv_header = pack('<HH', relay.COMMAND_CHANNEL, len(cmd_buffer))
         elif cmd == relay.FORWARD_CONNECTION_SUCCESS:
-            cmd_buffer = cmd + pack('<H', args[0])
+            cmd_buffer = bytes([cmd]) + pack('<H', args[0])
             tlv_header = pack('<HH', relay.COMMAND_CHANNEL, len(cmd_buffer))
         elif cmd == relay.FORWARD_CONNECTION_FAILURE:
-            cmd_buffer = cmd + pack('<H', args[0])
+            cmd_buffer = bytes([cmd]) + pack('<H', args[0])
             tlv_header = pack('<HH', relay.COMMAND_CHANNEL, len(cmd_buffer))
         else:
-            cmd_buffer = cmd
+            cmd_buffer = bytes([cmd])
             tlv_header = pack('<HH', relay.COMMAND_CHANNEL, len(cmd_buffer))
         try:
             sock.send(tlv_header + cmd_buffer)
-        except socket.error as (code, cmd):
-            logger.error('Socket error on sending command to remote side. Code {0}. Msg {1}'.format(code, cmd))
+        except socket.error as e:
+            code, cmd_msg = e.args
+            logger.error('Socket error on sending command to remote side. Code {0}. Msg {1}'.format(code, cmd_msg))
 
     def set_channel(self, sock, channel_id):
         self.channel[channel_id] = sock
@@ -267,7 +269,8 @@ class SocksRelay:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.setblocking(0)
             sock.connect_ex((host, port))
-        except socket.error as (code, msg):
+        except socket.error as e:
+            code, msg = e.args
             logger.debug("Caught exception socket.error during establishing forward connection. Code {0}. Msg {1}".format(code, msg))
             self.send_remote_cmd(self.bc_sock, relay.FORWARD_CONNECTION_FAILURE, channel_id)
             return
@@ -279,7 +282,8 @@ class SocksRelay:
             return
         try:
             to_socket.send(data)
-        except socket.error as (code, msg):
+        except socket.error as e:
+            code, msg = e.args
             logger.debug('Exception on relaying data to socket {0}'.format(to_socket))
             logger.debug('Errno: {0} Msg: {1}'.format(errno.errorcode[code], msg))
             if to_socket == self.bc_sock:
@@ -290,7 +294,7 @@ class SocksRelay:
                 self.input_list.remove(to_socket)
                 channel_id = self.id_by_socket[to_socket]
                 self.unset_channel(channel_id)
-                self.send_remote_cmd(self.socket_with_server, relay.CHANNEL_CLOSE_CMD, channel_id)
+                self.send_remote_cmd(self.bc_sock, relay.CHANNEL_CLOSE_CMD, channel_id)
 
 
 class NtlmProxyContext(object):
@@ -328,16 +332,18 @@ Proxy-Authorization: NTLM {2}
         resp = None
         try:
             self._sock.connect((self._proxy_ip, self._proxy_port))
-            self._sock.send(NtlmProxyContext.negotiate_request.format(host, str(port), negotiate_message))
+            self._sock.send(NtlmProxyContext.negotiate_request.format(host, str(port), negotiate_message).encode())
             resp = self._sock.recv(4096)
-        except socket.error as (code, msg):
+        except socket.error as e:
+            code, msg = e.args
             logger.error("Caught socket error trying to establish connection to proxy. Code {0}. Msg {1}".format(code, msg))
             raise
 
         try:
-            chal_msg = NtlmProxyContext.get_challenge(resp)
+            chal_msg = NtlmProxyContext.get_challenge(resp.decode())
             ntlm_context.parse_challenge_message(chal_msg)
-        except TypeError:
+        except TypeError as e:
+            code, msg = e.args if hasattr(e, 'args') else (None, str(e))
             logger.error("Couldn't parse proxy challenge. Code {0}. Msg {1}".format(code, msg))
             if resp is not None:
                 logger.error("Challenge contents: {0}".format(resp))
@@ -345,18 +351,17 @@ Proxy-Authorization: NTLM {2}
                 logger.error("Challenge contents is 'None'")
             self._sock.close()
 
-
-
         authenticate_message = ntlm_context.create_authenticate_message(user_name=self._username,
-                                                                        domain_name=self._domain,
-                                                                        password=self._password,
-                                                                        nthash=self._nthash,
-                                                                        lmhash=self._lmhash).decode()
+                                                                      domain_name=self._domain,
+                                                                      password=self._password,
+                                                                      nthash=self._nthash,
+                                                                      lmhash=self._lmhash).decode()
         resp = None
         try:
-            self._sock.send(NtlmProxyContext.authenticate_request.format(host, str(port), authenticate_message))
+            self._sock.send(NtlmProxyContext.authenticate_request.format(host, str(port), authenticate_message).encode())
             resp = self._sock.recv(4096)
-        except socket.error as (code, msg):
+        except socket.error as e:
+            code, msg = e.args
             logger.error("Caught socket error trying to send challenge response connection to proxy. Code {0}. Msg {1}".format(code, msg))
             self._sock.close()
             raise
@@ -365,22 +370,22 @@ Proxy-Authorization: NTLM {2}
             logger.error("Received an empty response to the challenge response")
             self._sock.close()
 
-
-        if 'HTTP/1.1 200 Connection established' in resp:
+        resp_str = resp.decode()
+        if 'HTTP/1.1 200 Connection established' in resp_str:
             logger.info('Ntlm proxy established connection')
-            logger.debug(resp)
-        elif 'HTTP/1.1 503 Service Unavailable' in resp:
+            logger.debug(resp_str)
+        elif 'HTTP/1.1 503 Service Unavailable' in resp_str:
             logger.error('Ntlm proxy response: Service Unavailable')
-            logger.debug(resp)
+            logger.debug(resp_str)
             self._sock.close()
-        elif 'HTTP/1.1 407 Proxy Authentication Required' in resp:
+        elif 'HTTP/1.1 407 Proxy Authentication Required' in resp_str:
             logger.error('Ntlm proxy authentication failed')
-            logger.debug(resp)
+            logger.debug(resp_str)
             self._sock.close()
             sys.exit(1)
         else:
             logger.error('Ntlm proxy unknown error')
-            logger.debug(resp)
+            logger.debug(resp_str)
             self._sock.close()
 
     def __getattr__(self, attribute_name):
@@ -418,10 +423,9 @@ def main():
 
     parser.add_option_group(proxy_group)
 
-
     cmd_options = parser.parse_args()[0]
     if cmd_options.server_ip is None:
-        print 'Server IP required'
+        print('Server IP required')
         sys.exit()
     logger = logging.getLogger('root')
     logger.setLevel(logging.DEBUG)
@@ -436,7 +440,6 @@ def main():
     else:
         ch.setLevel(logging.INFO)
     logger.addHandler(ch)
-    logger.addHandler(ch)
     while True:
         logger.info('Backconnecting to server {0} port {1}'.format(cmd_options.server_ip, cmd_options.server_port))
         backconnect_host = cmd_options.server_ip
@@ -450,23 +453,24 @@ def main():
                         logger.error('Error. Must specify ntlm proxy port')
                         sys.exit(1)
                     if cmd_options.hashes is not None:
-                        if re.match('[a-zA-Z0-9]{32}:[a-zA-Z0-9]{32}', cmd_options.hashes) is None:
+                        if re.match(r'[a-zA-Z0-9]{32}:[a-zA-Z0-9]{32}', cmd_options.hashes) is None:
                             logger.error('Hash format error. Valid hash format - LMHASH:NTHASH')
                             sys.exit(1)
 
                     logger.info('Connecting via NTLM proxy at {0}:{1}'.format(cmd_options.ntlm_proxy_ip, cmd_options.ntlm_proxy_port))
                     ntlm_con = NtlmProxyContext(bc_sock, proxy_ip=cmd_options.ntlm_proxy_ip,
-                                                proxy_port=int(cmd_options.ntlm_proxy_port),
-                                                username=cmd_options.username,
-                                                domain=cmd_options.domain,
-                                                password=cmd_options.password,
-                                                nthash=None if cmd_options.hashes is None else cmd_options.hashes.split(':')[1],
-                                                lmhash=None if cmd_options.hashes is None else cmd_options.hashes.split(':')[0])
+                                              proxy_port=int(cmd_options.ntlm_proxy_port),
+                                              username=cmd_options.username,
+                                              domain=cmd_options.domain,
+                                              password=cmd_options.password,
+                                              nthash=None if cmd_options.hashes is None else cmd_options.hashes.split(':')[1],
+                                              lmhash=None if cmd_options.hashes is None else cmd_options.hashes.split(':')[0])
 
                     bc_sock = ntlm_con
                 bc_sock.connect((backconnect_host, backconnect_port))
                 break
-            except socket.error as (code, msg):
+            except socket.error as e:
+                code, msg = e.args
                 logger.info('Unable to connect to {0} port: {1}. Caught socket error trying to establish connection with RPIVOT server. Code {2}. Msg {3}'.format(cmd_options.server_ip, cmd_options.server_port, code, msg))
                 logger.info('Retrying')
                 time.sleep(5)
@@ -479,7 +483,8 @@ def main():
                 bc_sock.close()
                 time.sleep(5)
                 continue
-        except socket.error as (code, msg):
+        except socket.error as e:
+            code, msg = e.args
             logger.error("Caught socket error trying to establish connection with RPIVOT server. Code {0}. Msg {1}".format(code, msg))
             bc_sock.close()
             time.sleep(5)
@@ -488,7 +493,8 @@ def main():
         socks_relayer = SocksRelay(bc_sock)
         try:
             socks_relayer.run()
-        except socket.error as (code, msg):
+        except socket.error as e:
+            code, msg = e.args
             logger.debug('Exception in socks_relayer.run(). Restarting relay')
             logger.debug('Errno: {0} Msg: {1}'.format(errno.errorcode[code], msg))
             bc_sock.close()
