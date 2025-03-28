@@ -4,12 +4,11 @@ import socket
 
 buffer_size = 4096
 delay = 0.0001
-socks_server_reply_success = '\x00\x5a\xff\xff\xff\xff\xff\xff'
-socks_server_reply_fail = '\x00\x5b\xff\xff\xff\xff\xff\xff'
 relay_timeout = 60
-banner = 'RPIVOT'
-banner_response = 'TUNNELRDY'
-
+banner = b"RPIVOT"
+banner_response = b"RPIVOT_OK"
+socks_server_reply_success = b"\x00\x5a\x00\x00\x00\x00\x00\x00"
+socks_server_reply_fail = b"\x00\x5b\x00\x00\x00\x00\x00\x00"
 COMMAND_CHANNEL = 0
 
 CHANNEL_CLOSE_CMD = '\xcc'
