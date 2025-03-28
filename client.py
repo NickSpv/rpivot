@@ -314,6 +314,7 @@ Proxy-Authorization: NTLM {2}
 
 '''
 
+
     def __init__(self, sock, proxy_ip, proxy_port, username, domain=None, password=None, nthash=None, lmhash=None):
         self._sock = sock
         self._proxy_ip = proxy_ip
@@ -476,6 +477,7 @@ def main():
                 time.sleep(5)
 
         try:
+
             bc_sock.send(relay.banner)
             banner_reponse_rcv = bc_sock.recv(4096)
             if banner_reponse_rcv != relay.banner_response:

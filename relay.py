@@ -37,13 +37,12 @@ class RelayError(Exception):
 
 
 def recvall(sock, data_len):
-    buf = ''
-    while True:
-        buf += sock.recv(data_len - len(buf))
-        if len(buf) == data_len:
-            break
-        time.sleep(delay)
-    assert(data_len == len(buf))
+    buf = b''  # Initialize as bytes
+    while len(buf) < data_len:
+        chunk = sock.recv(data_len - len(buf))
+        if not chunk:
+            raise RelayError("Socket connection broken")
+        buf += chunk
     return buf
 
 

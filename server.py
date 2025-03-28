@@ -160,23 +160,20 @@ class RelayServer:
     def manage_socks_client_socket(self, sock):
         try:
             data = sock.recv(relay.buffer_size)
+            if not data:  # Connection closed
+                self.close_socks_connection(sock)
+                return
         except socket.error as e:
             code, msg = e.args
             logger.debug('Exception on reading socket {0} with channel id {1}'.format(sock, self.id_by_socket[sock]))
             logger.debug('Details: {0}, {1}'.format(errno.errorcode[code], msg))
             self.close_socks_connection(sock)
             return
-        data_len = len(data)
-        if data_len == 0:
-            self.close_socks_connection(sock)
-            return
-        else:
-            channel_id = self.id_by_socket[sock]
-            tlv_header = pack('<HH', channel_id, len(data))
-            logger.debug('Got data to relay from app side. Channel id {0}. Data length: {1}'.format(channel_id, len(data)))
-            logger.debug('Preparing tlv header: {0}'.format(tlv_header.hex()))
-            logger.debug('Data contents: {0}'.format(data.hex()))
-            self.relay(tlv_header + data, self.socket_with_server)
+        
+        channel_id = self.id_by_socket[sock]
+        tlv_header = pack('<HH', channel_id, len(data))
+        logger.debug('Got data to relay from app side. Channel id {0}. Data length: {1}'.format(channel_id, len(data)))
+        self.relay(tlv_header + data, self.socket_with_server)
 
     def handle_remote_cmd(self, data):
         cmd = data[0]
