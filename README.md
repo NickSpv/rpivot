@@ -1,6 +1,7 @@
 RPIVOT - reverse socks 4 proxy for penetration tests
 ===================
 
+UPDATE TOOL FOR PYTHON 3
 
 RPIVOT allows to tunnel traffic into internal network via socks 4. It works like ssh dynamic port forwarding but in the opposite direction. 
 
@@ -11,7 +12,7 @@ RPIVOT allows to tunnel traffic into internal network via socks 4. It works like
 Description
 -------------
 
-This tool is Python 2.6-2.7 compatible and has no dependencies beyond the standard library. It has client-server architecture. Just run the client on the machine you want to tunnel the traffic through. Server should be started on pentester's machine and listen to incoming connections from the client.
+This tool is Python 3 compatible and has no dependencies beyond the standard library. It has client-server architecture. Just run the client on the machine you want to tunnel the traffic through. Server should be started on pentester's machine and listen to incoming connections from the client.
 
 Works on Kali Linux, Solaris 10, Windows, Mac OS.
 
