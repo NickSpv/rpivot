@@ -354,11 +354,11 @@ def run_server(host, port):
 
         try:
             banner_rcv = socket_with_remote_side.recv(4096)
-            if banner_rcv != relay.banner.encode():
+            if banner_rcv != relay.banner:
                 logger.error("Wrong banner {0} from client. Closing connection".format(repr(banner_rcv)))
                 socket_with_remote_side.close()
                 continue
-            socket_with_remote_side.send(relay.banner_response.encode())
+            socket_with_remote_side.send(relay.banner_response)
         except socket.error as e:
             code, msg = e.args
             logger.error("Caught socket error trying to establish connection with RPIVOT client. Code {0}. Msg {1}".format(code, msg))
