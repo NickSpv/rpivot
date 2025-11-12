@@ -132,7 +132,8 @@ class SocksRelay:
 
     def handle_remote_cmd(self, data):
         cmd = data[0]
-        logger.debug('Received cmd data from remote side. Cmd: {0}'.format(relay.cmd_names[cmd]))
+        cmd_byte = bytes([cmd])
+        logger.debug('Received cmd data from remote side. Cmd: {0}'.format(relay.cmd_names.get(cmd_byte, 'UNKNOWN')))
         if cmd == relay.CHANNEL_CLOSE_CMD:
             channel_id = unpack('<H', data[1:3])[0]
             logger.debug('Channel close request with id: {0}'.format(channel_id))
@@ -236,7 +237,8 @@ class SocksRelay:
         self.send_remote_cmd(self.bc_sock, relay.CHANNEL_CLOSE_CMD, channel_id)
 
     def send_remote_cmd(self, sock, cmd, *args):
-        logger.debug('Sending cmd to remote side. Cmd: {0}'.format(relay.cmd_names[cmd]))
+        cmd_byte = bytes([cmd])
+        logger.debug('Sending cmd to remote side. Cmd: {0}'.format(relay.cmd_names.get(cmd_byte, 'UNKNOWN')))
         if cmd == relay.CHANNEL_CLOSE_CMD:
             cmd_buffer = bytes([cmd]) + pack('<H', args[0])
             tlv_header = pack('<HH', relay.COMMAND_CHANNEL, len(cmd_buffer))
