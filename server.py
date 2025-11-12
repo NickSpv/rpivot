@@ -80,6 +80,10 @@ class RelayServer:
             try:
                 logger.debug("Active channels: {0}".format(list(self.channel.keys())))
                 inputready, outputready, exceptready = select.select(self.input_list, [], [])
+            except ValueError as e:
+                # ПРОСТО ЛОГГИРУЕМ И ПРОДОЛЖАЕМ РАБОТУ
+                logger.debug('ValueError in select, continuing: {0}'.format(e))
+                continue
             except socket.error as e:
                 code, msg = e.args
                 logger.debug('Socket error on select. Errno: {0} Msg: {1}'.format(errno.errorcode[code], msg))
