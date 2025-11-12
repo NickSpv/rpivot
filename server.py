@@ -151,7 +151,6 @@ class RelayServer:
         elif channel_id in self.channel:
             relay_to_sock = self.channel[channel_id]
             logger.debug('Got data to relay from remote side. Channel id {0}. Data length: {1}'.format(channel_id, len(data)))
-            logger.debug('Data contents: {0}'.format(data.encode('hex')))
             self.relay(data, relay_to_sock)
         else:
             logger.debug('Relay from socket {0} with channel {1} not possible. Channel does not exist'.format(sock, channel_id))
